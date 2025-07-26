@@ -1,7 +1,5 @@
-# kcet-college-recommender
-College recommendation based on KEA UGCET MOCK CUTOFF LIST 2025
-
 # KCET College Recommender
+College recommendation based on KEA UGCET MOCK CUTOFF LIST 2025
 
 This tool helps students explore KCET (Karnataka Common Entrance Test) college cut-offs based on their rank and selected filters such as college, category, course, and city.
 
