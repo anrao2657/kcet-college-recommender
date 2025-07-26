@@ -88,3 +88,10 @@ else:
         file_name=f"kcet_college_recommendations_rank_{int(rank)}.csv",
         mime='text/csv'
     )
+
+# Disclaimer section
+st.markdown("---")
+st.markdown(
+    "**Disclaimer:** This is not an official KEA tool. It is built for informational purposes only. "
+    "Please always refer to the [official KEA website](https://cetonline.karnataka.gov.in/kea/ugcet2025) for authoritative and up-to-date information."
+)
