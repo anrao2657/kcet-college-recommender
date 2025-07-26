@@ -21,7 +21,7 @@ st.title("KCET Cut-Off Rank College Recommender")
 st.markdown(
     """
     Enter your **KCET rank** and (optionally) filter by partial college name or exact category code, to see the best-matching colleges and courses.<br>
-    Results show **all courses where your rank meets the cutoff**.
+    Results show **all courses where your rank meets the cutoff based on the UGCET 2025 Mock Cutoff list**.
     """, unsafe_allow_html=True
 )
 
@@ -92,6 +92,6 @@ else:
 # Disclaimer section
 st.markdown("---")
 st.markdown(
-    "**Disclaimer:** This is not an official KEA tool. It is built for informational purposes only. "
-    "Please always refer to the [official KEA website](https://cetonline.karnataka.gov.in/kea/ugcet2025) for authoritative and up-to-date information."
+    "**Disclaimer:** This is not an official KEA tool. It is built for informational purposes only based on the UGCET 2025 Mock Cutoff list. "
+    "Please always refer to the [official KEA website](https://kea.kar.nic.in/) for authoritative and up-to-date information."
 )
