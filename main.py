@@ -8,7 +8,8 @@ def load_data(csv_path='kcet_cutoffs.csv'):
     # Ensure 'Cut-Off Rank' is numeric for filtering
     df['Cut-Off Rank'] = pd.to_numeric(df['Cut-Off Rank'], errors='coerce')
     df.dropna(subset=['Cut-Off Rank'], inplace=True)
-    df['College'] = df['College'].astype(str)
+    df['College Code'] = df['College Code'].astype(str)
+    df['College Name'] = df['College Name'].astype(str)
     df['Category'] = df['Category'].astype(str)
     df['Course Name'] = df['Course Name'].astype(str)
     return df
@@ -21,7 +22,7 @@ st.title("KCET Cut-Off Rank College Recommender")
 st.markdown(
     """
     Enter your **KCET rank** and (optionally) filter by partial college name or exact category code, to see the best-matching colleges and courses.<br>
-    Results show **all courses where your rank meets the cutoff based on the UGCET 2025 Mock Cutoff list**.
+    Results show **all courses where your rank meets the cutoff based on the UGCET-2025 PROVISIONAL ALLOTMENT CUT-OFF RANKS FOR Engineering**.
     """, unsafe_allow_html=True
 )
 
@@ -29,22 +30,32 @@ st.markdown(
 rank = st.number_input("Enter your KCET Rank:", min_value=1, step=1, format="%d")
 
 with st.expander("🔎 Advanced Filters (optional)"):
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2 = st.columns([0.3, 0.7])
     with col1:
-        college_options = sorted(df['College'].unique())
+        college_code_options = sorted(df['College Code'].unique())
+        college_code_query = st.selectbox("Select College Code", options=[""] + college_code_options, index=0)
+        college_options = sorted(df['College Name'].unique())
         college_query = st.selectbox("Select College (optional)", [""] + college_options)
     with col2:
-        category_options = sorted(df['Category'].unique())
-        category_query = st.selectbox("Select Category (optional)", [""] + category_options)
-    with col3:
-        course_query = st.text_input("Search Course (type at least 3 letters)", "")
-    city_query = st.text_input("Search City (type at least 3 letters)", "")
+        subcol1, subcol2 = st.columns([0.3, 0.7])
+        with subcol1:
+            category_options = sorted(df['Category'].unique())
+            category_query = st.selectbox("Select Category (optional)", [""] + category_options)
+        with subcol2:
+            course_query = st.text_input("Search Course (type at least 3 letters)", "")
+            city_query = st.text_input("Search City (type at least 3 letters)", "")
 
 filtered_df = df.copy()
 
 # Apply exact match filters
+if college_code_query:
+    code_query_lower = college_code_query.strip().lower()
+    filtered_df = filtered_df[
+        filtered_df['College Code'].str.lower().str.startswith(code_query_lower)
+    ]
+
 if college_query:
-    filtered_df = filtered_df[filtered_df['College'] == college_query]
+    filtered_df = filtered_df[filtered_df['College Name'] == college_query]
 
 if category_query:
     filtered_df = filtered_df[filtered_df['Category'] == category_query]
@@ -57,14 +68,14 @@ if course_query and len(course_query.strip()) >= 3:
 if city_query and len(city_query.strip()) >= 3:
     city_query_lower = city_query.strip().lower()
     filtered_df = filtered_df[
-        filtered_df['College'].apply(
+        filtered_df['College Name'].apply(
             lambda name: name.split(",")[-1].strip().lower().startswith(city_query_lower)
         )
     ]
 
 # Sort filtered dataframe before filtering rank qualification
 filtered_df = filtered_df.sort_values(
-    by=['Cut-Off Rank', 'College', 'Course Name'], ascending=[True, True, True]
+    by=['Cut-Off Rank', 'College Code', 'Course Name'], ascending=[True, True, True]
 ).reset_index(drop=True)
 
 # Apply rank filtering after college and category filters
@@ -76,9 +87,10 @@ if recommended.empty:
 else:
     st.header(f"Recommended Colleges for Rank {int(rank)}")
     st.dataframe(
-        recommended[['College', 'Course Name', 'Category', 'Cut-Off Rank']],
+        recommended[['College Code', 'College Name', 'Course Name', 'Category', 'Cut-Off Rank']],
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        height=600
     )
     # Download button for filtered data
     csv = recommended.to_csv(index=False)
@@ -92,6 +104,6 @@ else:
 # Disclaimer section
 st.markdown("---")
 st.markdown(
-    "**Disclaimer:** This is not an official KEA tool. It is built for informational purposes only based on the UGCET 2025 Mock Cutoff list. "
+    "**Disclaimer:** This is not an official KEA tool. It is built for informational purposes only based on the UGCET-2025 PROVISIONAL ALLOTMENT CUT-OFF RANKS FOR Engineering. "
     "Please always refer to the [official KEA website](https://kea.kar.nic.in/) for authoritative and up-to-date information."
 )
