@@ -68,7 +68,9 @@ with filter_cols[4]:
 if filter_code:
     filtered = filtered[filtered['College Code'].str.lower().str.contains(filter_code)]
 if filter_name:
-    filtered = filtered[filtered['College Name'].str.lower().str.contains(filter_name)]
+    def normalized_match(college):
+        return normalize(college).find(normalize(filter_name)) != -1
+    filtered = filtered[filtered['College Name'].apply(normalized_match)]
 if filter_category:
     filtered = filtered[filtered['Category'] == filter_category]
 if filter_course:
