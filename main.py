@@ -1,109 +1,98 @@
 import streamlit as st
 import pandas as pd
 
-# Load the cutoff data CSV
+# ---------- Reset Callback Functions ----------
+def reset_college():
+    st.session_state["college_query"] = ""
+
+def reset_code():
+    st.session_state["college_code_query"] = ""
+
+def reset_category():
+    st.session_state["category_query"] = "GM"
+
+def reset_course():
+    st.session_state["course_query"] = ""
+
+# ---------- Utility Functions ----------
+def normalize(text):
+    return ''.join(text.lower().split()).replace('.', '') if isinstance(text, str) else ''
+
+def match_college_name(input_text, all_colleges):
+    norm_input = normalize(input_text)
+    return [c for c in all_colleges if normalize(c).startswith(norm_input)]
+
+# ---------- Data Loading ----------
 @st.cache_data
-def load_data(csv_path='kcet_cutoffs.csv'):
-    df = pd.read_csv(csv_path)
-    # Ensure 'Cut-Off Rank' is numeric for filtering
+def load_data(path='kcet_cutoffs.csv'):
+    df = pd.read_csv(path)
     df['Cut-Off Rank'] = pd.to_numeric(df['Cut-Off Rank'], errors='coerce')
     df.dropna(subset=['Cut-Off Rank'], inplace=True)
-    df['College Code'] = df['College Code'].astype(str)
-    df['College Name'] = df['College Name'].astype(str)
-    df['Category'] = df['Category'].astype(str)
-    df['Course Name'] = df['Course Name'].astype(str)
+    for col in ['College Code', 'College Name', 'Category', 'Course Name']:
+        df[col] = df[col].astype(str)
     return df
 
 df = load_data()
 
+# ---------- Page Config ----------
 st.set_page_config(page_title="KCET College Recommender", layout="wide")
-st.title("KCET Cut-Off Rank College Recommender")
+st.title("KCET Cut-Off Rank Latest")
+st.markdown("""
+Enter your **KCET rank**, then refine results using the filters below.
+""", unsafe_allow_html=True)
 
-st.markdown(
-    """
-    Enter your **KCET rank** and (optionally) filter by partial college name or exact category code, to see the best-matching colleges and courses.<br>
-    Results show **all courses where your rank meets the cutoff based on the UGCET-2025 PROVISIONAL ALLOTMENT CUT-OFF RANKS FOR Engineering**.
-    """, unsafe_allow_html=True
-)
+# ---------- Main Rank Input ----------
+# input_row = st.columns([0.5])
+# with input_row[0]:
+#     rank = st.number_input("Enter your KCET Rank:", min_value=1, step=1, format="%d")
 
-# Main user input
-rank = st.number_input("Enter your KCET Rank:", min_value=1, step=1, format="%d")
+# ---------- Apply Rank Filter ----------
+filtered = df.copy()
+# filtered = filtered[filtered['Cut-Off Rank'] >= rank]
 
-with st.expander("🔎 Advanced Filters (optional)"):
-    col1, col2 = st.columns([0.3, 0.7])
-    with col1:
-        college_code_options = sorted(df['College Code'].unique())
-        college_code_query = st.selectbox("Select College Code", options=[""] + college_code_options, index=0)
-        college_options = sorted(df['College Name'].unique())
-        college_query = st.selectbox("Select College (optional)", [""] + college_options)
-    with col2:
-        subcol1, subcol2 = st.columns([0.3, 0.7])
-        with subcol1:
-            category_options = sorted(df['Category'].unique())
-            category_query = st.selectbox("Select Category (optional)", [""] + category_options)
-        with subcol2:
-            course_query = st.text_input("Search Course (type at least 3 letters)", "")
-            city_query = st.text_input("Search City (type at least 3 letters)", "")
+# ---------- Column-Level Filters ----------
+st.markdown("### Filter Results")
+filter_cols = st.columns(5)
+with filter_cols[0]:
+    filter_code = st.text_input("College Code Filter").strip().lower()
+with filter_cols[1]:
+    filter_name = st.text_input("College Name Filter").strip().lower()
+with filter_cols[2]:
+    filter_category = st.selectbox("Category Filter", [""] + sorted(filtered['Category'].unique()), index=([""] + sorted(filtered['Category'].unique())).index("GM") if "GM" in filtered['Category'].unique() else 0)
+with filter_cols[3]:
+    filter_course = st.text_input("Course Name Filter").strip().lower()
+with filter_cols[4]:
+    filter_rank = st.number_input("Cutoff Rank ≤", min_value=0, step=1)
 
-filtered_df = df.copy()
+# Apply column filters
+if filter_code:
+    filtered = filtered[filtered['College Code'].str.lower().str.contains(filter_code)]
+if filter_name:
+    filtered = filtered[filtered['College Name'].str.lower().str.contains(filter_name)]
+if filter_category:
+    filtered = filtered[filtered['Category'] == filter_category]
+if filter_course:
+    filtered = filtered[filtered['Course Name'].str.lower().str.contains(filter_course)]
+if filter_rank > 0:
+    filtered = filtered[filtered['Cut-Off Rank'] >= filter_rank]
 
-# Apply exact match filters
-if college_code_query:
-    code_query_lower = college_code_query.strip().lower()
-    filtered_df = filtered_df[
-        filtered_df['College Code'].str.lower().str.startswith(code_query_lower)
-    ]
+filtered = filtered.sort_values(by='Cut-Off Rank')
 
-if college_query:
-    filtered_df = filtered_df[filtered_df['College Name'] == college_query]
-
-if category_query:
-    filtered_df = filtered_df[filtered_df['Category'] == category_query]
-
-if course_query and len(course_query.strip()) >= 3:
-    filtered_df = filtered_df[
-        filtered_df['Course Name'].str.lower().str.startswith(course_query.strip().lower())
-    ]
-
-if city_query and len(city_query.strip()) >= 3:
-    city_query_lower = city_query.strip().lower()
-    filtered_df = filtered_df[
-        filtered_df['College Name'].apply(
-            lambda name: name.split(",")[-1].strip().lower().startswith(city_query_lower)
-        )
-    ]
-
-# Sort filtered dataframe before filtering rank qualification
-filtered_df = filtered_df.sort_values(
-    by=['Cut-Off Rank', 'College Code', 'Course Name'], ascending=[True, True, True]
-).reset_index(drop=True)
-
-# Apply rank filtering after college and category filters
-# ✅ Correct logic: You qualify if your rank is less than or equal to the cutoff
-recommended = filtered_df[filtered_df['Cut-Off Rank'] >= rank]
-
-if recommended.empty:
-    st.warning("No colleges found matching your rank and filter criteria.")
+# ---------- Display Results ----------
+if filtered.empty:
+    st.warning("No colleges found matching your criteria.")
 else:
-    st.header(f"Recommended Colleges for Rank {int(rank)}")
+    st.subheader(f"Recommended Colleges")
     st.dataframe(
-        recommended[['College Code', 'College Name', 'Course Name', 'Category', 'Cut-Off Rank']],
+        filtered[['College Code', 'College Name', 'Category', 'Course Name', 'Cut-Off Rank']],
         use_container_width=True,
-        hide_index=True,
-        height=600
+        hide_index=True
     )
-    # Download button for filtered data
-    csv = recommended.to_csv(index=False)
-    st.download_button(
-        label="Download results as CSV",
-        data=csv,
-        file_name=f"kcet_college_recommendations_rank_{int(rank)}.csv",
-        mime='text/csv'
-    )
+    csv = filtered.to_csv(index=False)
+    st.download_button("Download CSV", csv, f"kcet_rank_recommendations.csv", "text/csv")
 
-# Disclaimer section
+# ---------- Disclaimer ----------
 st.markdown("---")
-st.markdown(
-    "**Disclaimer:** This is not an official KEA tool. It is built for informational purposes only based on the UGCET-2025 PROVISIONAL ALLOTMENT CUT-OFF RANKS FOR Engineering. "
-    "Please always refer to the [official KEA website](https://kea.kar.nic.in/) for authoritative and up-to-date information."
-)
+st.markdown("""
+**Disclaimer:** This is not an official KEA tool. Refer to the official KEA website for authoritative information.
+""")
